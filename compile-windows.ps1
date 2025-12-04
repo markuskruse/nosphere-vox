@@ -5,10 +5,11 @@ $ErrorActionPreference = "Stop"
 
 $dist = "dist\windows"
 $build = "build\windows"
+$asset = Join-Path $PSScriptRoot "assets\nosphere-vox.png"
 $targets = @("vox.py")
 
-if (Test-Path $dist) { Remove-Item -Recurse -Force $dist }
-if (Test-Path $build) { Remove-Item -Recurse -Force $build }
+if (Test-Path $dist) { Remove-Item -Recurse -Force $dist -ErrorAction SilentlyContinue }
+if (Test-Path $build) { Remove-Item -Recurse -Force $build -ErrorAction SilentlyContinue }
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
 
 foreach ($target in $targets) {
@@ -24,6 +25,6 @@ foreach ($target in $targets) {
         --workpath $targetBuild `
         --specpath $targetBuild `
         --clean `
-        --add-data "assets\\nosphere-vox.png;assets" `
+        --add-data "$asset;assets" `
         $target
 }
