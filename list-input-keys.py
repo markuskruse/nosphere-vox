@@ -1,18 +1,28 @@
 #!/usr/bin/env python3
-from pynput import keyboard
+import evdev
 
 
 def main():
-    print("Press keys to see them; Ctrl+C to exit.")
-
-    def on_press(key):
-        try:
-            print(f"Key pressed: {key.char}")
-        except AttributeError:
-            print(f"Key pressed: {key}")
-
-    with keyboard.Listener(on_press=on_press) as listener:
-        listener.join()
+    devices = [evdev.InputDevice(path) for path in evdev.list_devices()]
+    if not devices:
+        print("No input devices found.")
+        return
+    print("Listening for key events; press Ctrl+C to stop.")
+    try:
+        while True:
+            for dev in devices:
+                try:
+                    for event in dev.read():
+                        if event.type == evdev.ecodes.EV_KEY:
+                            key_event = evdev.categorize(event)
+                            print(f"{dev.path}: {dev.name} - {key_event}")
+                except BlockingIOError:
+                    continue
+                except PermissionError:
+                    print(f"{dev.path}: Permission denied")
+                    continue
+    except KeyboardInterrupt:
+        print("Stopping.")
 
 
 if __name__ == "__main__":
