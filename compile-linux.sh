@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build Linux binary for Vox (combined sender/listener) using PyInstaller.
+# Build Linux binaries for all Python scripts using PyInstaller.
 # Run from the repo root on a Linux host with python3 and PyInstaller installed.
 
 DIST_DIR="dist/linux"
 BUILD_DIR="build/linux"
-TARGETS=(vox.py)
+TARGETS=($(ls *.py))
 
 rm -rf "$DIST_DIR" "$BUILD_DIR"
 mkdir -p "$DIST_DIR"
