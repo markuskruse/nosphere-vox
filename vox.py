@@ -101,6 +101,8 @@ def main():
         root.after(1000, update_status)
 
     def listen_audio(listen_ip):
+        with console_lock:
+            print(f"[listener] binding on {listen_ip}:{LISTEN_PORT}", flush=True)
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
             sock.bind((listen_ip, LISTEN_PORT))
@@ -123,6 +125,8 @@ def main():
                         packets_this_second["count"] += 1
         except Exception as exc:
             safe_set(status_var, f"Error: {exc}")
+            with console_lock:
+                print(f"[listener] error: {exc}", flush=True)
         finally:
             sock.close()
             running.clear()
@@ -139,6 +143,18 @@ def main():
             safe_set(status_var, "Enter the listen IP before starting")
             return
         save_config_entry(CONFIG_LISTEN_KEY, listen_ip)
+        try:
+            sd.check_output_settings(
+                samplerate=SAMPLE_RATE,
+                channels=CHANNELS,
+                dtype="int16",
+            )
+        except Exception as exc:
+            msg = f"Output device unsupported: {exc}"
+            safe_set(status_var, msg)
+            with console_lock:
+                print(f"[listener] {msg}", flush=True)
+            return
         running.set()
         with packets_lock:
             packets_this_second["count"] = 0
