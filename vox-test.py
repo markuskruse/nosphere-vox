@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import socket
 import sys
 import time
@@ -32,9 +33,13 @@ def load_config_target():
 
 
 def main():
-    target_ip = load_config_target()
+    parser = argparse.ArgumentParser(description="Headless test tone sender")
+    parser.add_argument("--ip", help="Target IP (overrides config)")
+    args = parser.parse_args()
+
+    target_ip = args.ip or load_config_target()
     if not target_ip:
-        print("No target_ip found in ~/.vox/config.txt", file=sys.stderr)
+        print("No target_ip found in ~/.vox/config.txt (and none provided)", file=sys.stderr)
         sys.exit(1)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
