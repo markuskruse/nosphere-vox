@@ -1,0 +1,21 @@
+# Node
+node_modules/
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+build/
+dist/
+
+# Environment / OS
+.env
+.env.*
+.DS_Store
+Thumbs.db
