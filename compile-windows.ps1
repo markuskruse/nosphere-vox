@@ -1,11 +1,11 @@
 $ErrorActionPreference = "Stop"
 
-# Build Windows binaries for all Python scripts using PyInstaller.
+# Build Windows binary for vox.py using PyInstaller.
 # Run from the repo root on Windows with Python and PyInstaller installed.
 
 $dist = "dist\windows"
 $build = "build\windows"
-$targets = Get-ChildItem -Path . -Filter "*.py" | ForEach-Object { $_.Name }
+$targets = @("vox.py")
 
 if (Test-Path $dist) { Remove-Item -Recurse -Force $dist }
 if (Test-Path $build) { Remove-Item -Recurse -Force $build }
