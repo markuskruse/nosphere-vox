@@ -7,6 +7,8 @@ from pathlib import Path
 
 import numpy as np
 import sounddevice as sd
+import subprocess
+import os
 
 SAMPLE_RATE = 48000
 CHANNELS = 2
@@ -18,6 +20,8 @@ PORT = 5004
 CONFIG_DIR = Path.home() / ".vox"
 CONFIG_FILE = CONFIG_DIR / "config.txt"
 CONFIG_TARGET_KEY = "target_ip"
+SETUP_SCRIPT = Path(__file__).with_name("setup-vox-meter-sink.sh")
+TEARDOWN_SCRIPT = Path(__file__).with_name("teardown-vox-meter-sink.sh")
 
 
 def load_config_target():
@@ -38,6 +42,7 @@ def main():
     parser.add_argument("--ip", help="Target IP (overrides config)")
     parser.add_argument("--port", type=int, default=PORT, help="Target UDP port (default: 5004)")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable periodic console logs")
+    parser.add_argument("--auto-sink", action="store_true", help="On Linux, ensure vox_meter sink exists (runs setup script if missing) and tear down on exit.")
     args = parser.parse_args()
 
     target_ip = args.ip or load_config_target()
@@ -61,8 +66,44 @@ def main():
     print(f"Headless meter/send: device='{device}', target={target_ip}:{port}")
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    ran_setup = False
+
+    def ensure_sink():
+        nonlocal ran_setup
+        if not args.auto_sink or os.name != "posix":
+            return
+        if not SETUP_SCRIPT.exists():
+            if args.verbose:
+                print("auto-sink requested but setup script missing", flush=True)
+            return
+        try:
+            out = subprocess.check_output(["pactl", "list", "short", "sinks"], text=True)
+            if "vox_meter" in out:
+                if args.verbose:
+                    print("vox_meter sink already present", flush=True)
+                return
+        except Exception:
+            pass
+        if args.verbose:
+            print("Running setup-vox-meter-sink.sh to create vox_meter sink...", flush=True)
+        try:
+            subprocess.check_call(["bash", str(SETUP_SCRIPT)])
+            ran_setup = True
+        except Exception as exc:
+            print(f"auto-sink setup failed: {exc}", file=sys.stderr)
+
+    def teardown_sink():
+        if not ran_setup or os.name != "posix":
+            return
+        if not TEARDOWN_SCRIPT.exists():
+            return
+        try:
+            subprocess.check_call(["bash", str(TEARDOWN_SCRIPT)])
+        except Exception as exc:
+            print(f"auto-sink teardown failed: {exc}", file=sys.stderr)
 
     try:
+        ensure_sink()
         with sd.RawInputStream(
             samplerate=SAMPLE_RATE,
             channels=CHANNELS,
@@ -103,6 +144,7 @@ def main():
         sys.exit(1)
     finally:
         sock.close()
+        teardown_sink()
 
 
 if __name__ == "__main__":
