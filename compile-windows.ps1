@@ -17,6 +17,11 @@ foreach ($target in $targets) {
     $targetBuild = Join-Path $build $name
     New-Item -ItemType Directory -Force -Path $targetBuild | Out-Null
 
+    $iconArg = @()
+    if ($target -eq "vox.py") {
+        $iconArg = @("--icon", "$PSScriptRoot\assets\nosphere-vox.png")
+    }
+
     python -m PyInstaller `
         --onefile `
         --windowed `
@@ -26,5 +31,6 @@ foreach ($target in $targets) {
         --specpath $targetBuild `
         --clean `
         --add-data "$asset;assets" `
+        @iconArg `
         $target
 }

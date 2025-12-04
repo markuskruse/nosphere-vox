@@ -15,6 +15,10 @@ for target in "${TARGETS[@]}"; do
   name="${target%.py}"
   target_build="$BUILD_DIR/$name"
   mkdir -p "$target_build"
+  extra=()
+  if [[ "$target" == "vox.py" ]]; then
+    extra=(--icon "assets/nosphere-vox.png")
+  fi
   python3 -m PyInstaller \
     --onefile \
     --windowed \
@@ -24,5 +28,6 @@ for target in "${TARGETS[@]}"; do
     --specpath "$target_build" \
     --clean \
     --add-data "assets/nosphere-vox.png:assets" \
+    "${extra[@]}" \
     "$target"
 done
