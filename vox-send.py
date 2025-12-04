@@ -20,8 +20,8 @@ PORT = 5004
 CONFIG_DIR = Path.home() / ".vox"
 CONFIG_FILE = CONFIG_DIR / "config.txt"
 CONFIG_TARGET_KEY = "target_ip"
-SETUP_SCRIPT = Path(__file__).with_name("setup-vox-meter-sink.sh")
-TEARDOWN_SCRIPT = Path(__file__).with_name("teardown-vox-meter-sink.sh")
+SINK_NAME = "vox_meter"
+SINK_DESC = "Vox_Meter"
 
 
 def load_config_target():
@@ -42,7 +42,7 @@ def main():
     parser.add_argument("--ip", help="Target IP (overrides config)")
     parser.add_argument("--port", type=int, default=PORT, help="Target UDP port (default: 5004)")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable periodic console logs")
-    parser.add_argument("--auto-sink", action="store_true", help="On Linux, ensure vox_meter sink exists (runs setup script if missing) and tear down on exit.")
+    parser.add_argument("--no-auto-sink", action="store_true", help="Disable auto sink setup (vox_meter) on Linux.")
     args = parser.parse_args()
 
     target_ip = args.ip or load_config_target()
@@ -67,40 +67,87 @@ def main():
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     ran_setup = False
+    saved_default_sink = None
+    saved_default_source = None
+
+    def read_defaults():
+        nonlocal saved_default_sink, saved_default_source
+        try:
+            out = subprocess.check_output(["pactl", "info"], text=True)
+            for line in out.splitlines():
+                if line.startswith("Default Sink:"):
+                    saved_default_sink = line.split(":", 1)[1].strip()
+                elif line.startswith("Default Source:"):
+                    saved_default_source = line.split(":", 1)[1].strip()
+        except Exception as exc:
+            if args.verbose:
+                print(f"Could not read pactl info: {exc}", file=sys.stderr)
 
     def ensure_sink():
         nonlocal ran_setup
-        if not args.auto_sink or os.name != "posix":
+        if args.no_auto_sink or os.name != "posix":
             return
-        if not SETUP_SCRIPT.exists():
-            if args.verbose:
-                print("auto-sink requested but setup script missing", flush=True)
-            return
+        print("Praise the Omnissiah!", flush=True)
         try:
             out = subprocess.check_output(["pactl", "list", "short", "sinks"], text=True)
-            if "vox_meter" in out:
+            if SINK_NAME in out:
                 if args.verbose:
-                    print("vox_meter sink already present", flush=True)
+                    print(f"{SINK_NAME} sink already present", flush=True)
+                print("OK", flush=True)
                 return
-        except Exception:
-            pass
-        if args.verbose:
-            print("Running setup-vox-meter-sink.sh to create vox_meter sink...", flush=True)
+        except Exception as exc:
+            if args.verbose:
+                print(f"Sink check failed: {exc}", file=sys.stderr)
+        read_defaults()
         try:
-            subprocess.check_call(["bash", str(SETUP_SCRIPT)])
+            subprocess.check_call(
+                [
+                    "pactl",
+                    "load-module",
+                    "module-null-sink",
+                    f"sink_name={SINK_NAME}",
+                    f"sink_properties=device.description={SINK_DESC}",
+                ]
+            )
+            subprocess.check_call(["pactl", "set-default-sink", SINK_NAME])
+            subprocess.check_call(["pactl", "set-default-source", f"{SINK_NAME}.monitor"])
+            if args.verbose:
+                print(f"Created {SINK_NAME} sink and set defaults", flush=True)
             ran_setup = True
+            print("OK", flush=True)
         except Exception as exc:
             print(f"auto-sink setup failed: {exc}", file=sys.stderr)
 
     def teardown_sink():
         if not ran_setup or os.name != "posix":
             return
-        if not TEARDOWN_SCRIPT.exists():
-            return
+        print("Let this tech heresy burn!", flush=True)
+        if saved_default_sink:
+            try:
+                subprocess.check_call(["pactl", "set-default-sink", saved_default_sink])
+            except Exception as exc:
+                print(f"restore default sink failed: {exc}", file=sys.stderr)
+        if saved_default_source:
+            try:
+                subprocess.check_call(["pactl", "set-default-source", saved_default_source])
+            except Exception as exc:
+                print(f"restore default source failed: {exc}", file=sys.stderr)
         try:
-            subprocess.check_call(["bash", str(TEARDOWN_SCRIPT)])
+            mods = subprocess.check_output(["pactl", "list", "short", "modules"], text=True)
+            for line in mods.splitlines():
+                parts = line.split("\t")
+                if len(parts) >= 2:
+                    mid = parts[0]
+                    desc = parts[1]
+                    if f"{SINK_NAME}.monitor" in desc or SINK_NAME in desc:
+                        try:
+                            subprocess.check_call(["pactl", "unload-module", mid])
+                        except Exception:
+                            continue
         except Exception as exc:
-            print(f"auto-sink teardown failed: {exc}", file=sys.stderr)
+            if args.verbose:
+                print(f"teardown unload failed: {exc}", file=sys.stderr)
+        print("Burned", flush=True)
 
     try:
         ensure_sink()
