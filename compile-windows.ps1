@@ -1,11 +1,11 @@
 $ErrorActionPreference = "Stop"
 
-# Build Windows binaries for listener and transmitter using PyInstaller.
+# Build Windows binary for Vox (combined sender/listener) using PyInstaller.
 # Run from the repo root on Windows with Python and PyInstaller installed.
 
 $dist = "dist\windows"
 $build = "build\windows"
-$targets = @("vox-listener.py", "vox-transmit.py")
+$targets = @("vox.py")
 
 if (Test-Path $dist) { Remove-Item -Recurse -Force $dist }
 if (Test-Path $build) { Remove-Item -Recurse -Force $build }
