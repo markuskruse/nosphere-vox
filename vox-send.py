@@ -100,19 +100,20 @@ def main():
                 print(f"Sink check failed: {exc}", file=sys.stderr)
         read_defaults()
         try:
-            subprocess.check_call(
+            mod_id = subprocess.check_output(
                 [
                     "pactl",
                     "load-module",
                     "module-null-sink",
                     f"sink_name={SINK_NAME}",
                     f"sink_properties=device.description={SINK_DESC}",
-                ]
-            )
+                ],
+                text=True,
+            ).strip()
             subprocess.check_call(["pactl", "set-default-sink", SINK_NAME])
             subprocess.check_call(["pactl", "set-default-source", f"{SINK_NAME}.monitor"])
             if args.verbose:
-                print(f"Created {SINK_NAME} sink and set defaults", flush=True)
+                print(f"Created {SINK_NAME} sink (module {mod_id}) and set defaults", flush=True)
             ran_setup = True
             print("OK", flush=True)
         except Exception as exc:
@@ -139,7 +140,7 @@ def main():
                 if len(parts) >= 2:
                     mid = parts[0]
                     desc = parts[1]
-                    if f"{SINK_NAME}.monitor" in desc or SINK_NAME in desc:
+                    if f"sink_name={SINK_NAME}" in desc or f"{SINK_NAME}.monitor" in desc or SINK_NAME in desc:
                         try:
                             subprocess.check_call(["pactl", "unload-module", mid])
                         except Exception:
