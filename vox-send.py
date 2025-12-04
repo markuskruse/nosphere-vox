@@ -36,12 +36,14 @@ def load_config_target():
 def main():
     parser = argparse.ArgumentParser(description="Headless sender")
     parser.add_argument("--ip", help="Target IP (overrides config)")
+    parser.add_argument("--port", type=int, default=PORT, help="Target UDP port (default: 5004)")
     args = parser.parse_args()
 
     target_ip = args.ip or load_config_target()
     if not target_ip:
         print("No target_ip found in ~/.vox/config.txt (and none provided)", file=sys.stderr)
         sys.exit(1)
+    port = args.port
 
     device = "pulse"
     try:
@@ -55,7 +57,7 @@ def main():
         print(f"Device check failed for '{device}': {exc}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Headless meter/send: device='{device}', target={target_ip}:{PORT}")
+    print(f"Headless meter/send: device='{device}', target={target_ip}:{port}")
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -76,7 +78,7 @@ def main():
                     print("Warning: input overflow", flush=True)
                 if len(data) != PACKET_SIZE:
                     continue
-                sock.sendto(data, (target_ip, PORT))
+                sock.sendto(data, (target_ip, port))
                 packets += 1
                 samples = np.frombuffer(data, dtype=np.int16).astype(np.int32)
                 if samples.size:

@@ -20,6 +20,7 @@ PACKET_SIZE = CHUNK * CHANNELS * BYTES_PER_SAMPLE
 CONFIG_DIR = Path.home() / ".vox"
 CONFIG_FILE = CONFIG_DIR / "config.txt"
 CONFIG_LISTEN_KEY = "listen_ip"
+CONFIG_PORT_KEY = "listen_port"
 
 
 def load_config():
@@ -45,13 +46,14 @@ def save_config_entry(key, value):
         print(f"Could not save config: {exc}", flush=True)
 
 
-def build_gui(default_ip):
+def build_gui(default_ip, default_port):
     root = tk.Tk()
     root.title("Vox Listener")
 
     status_var = tk.StringVar(value="Idle")
     button_var = tk.StringVar(value="Start Listening")
     ip_var = tk.StringVar(value=default_ip)
+    port_var = tk.StringVar(value=str(default_port))
 
     status_label = tk.Label(root, textvariable=status_var, font=("Helvetica", 12))
     status_label.pack(padx=12, pady=8)
@@ -61,10 +63,15 @@ def build_gui(default_ip):
     ip_entry = tk.Entry(root, textvariable=ip_var, width=22)
     ip_entry.pack(padx=12, pady=(0, 6))
 
+    port_label = tk.Label(root, text="Listen Port")
+    port_label.pack(padx=12, pady=(4, 2))
+    port_entry = tk.Entry(root, textvariable=port_var, width=10)
+    port_entry.pack(padx=12, pady=(0, 6))
+
     start_button = tk.Button(root, textvariable=button_var, width=18)
     start_button.pack(padx=12, pady=4)
 
-    return root, status_var, button_var, ip_var, start_button
+    return root, status_var, button_var, ip_var, port_var, start_button
 
 
 def main():
@@ -81,8 +88,9 @@ def main():
 
     config = load_config()
     default_ip = config.get(CONFIG_LISTEN_KEY, LISTEN_IP)
+    default_port = int(config.get(CONFIG_PORT_KEY, LISTEN_PORT)) if str(config.get(CONFIG_PORT_KEY, "")).isdigit() else LISTEN_PORT
 
-    root, status_var, button_var, ip_var, start_button = build_gui(default_ip)
+    root, status_var, button_var, ip_var, port_var, start_button = build_gui(default_ip, default_port)
 
     def safe_set(var, value):
         try:
@@ -100,12 +108,12 @@ def main():
         safe_set(status_var, f"Average: {avg:.1f} packets/s (last 10s)" if running.is_set() else "Idle")
         root.after(1000, update_status)
 
-    def listen_audio(listen_ip):
+    def listen_audio(listen_ip, listen_port):
         with console_lock:
-            print(f"[listener] binding on {listen_ip}:{LISTEN_PORT}", flush=True)
+            print(f"[listener] binding on {listen_ip}:{listen_port}", flush=True)
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
-            sock.bind((listen_ip, LISTEN_PORT))
+            sock.bind((listen_ip, listen_port))
             sock.settimeout(1.0)
             with sd.RawOutputStream(
                 samplerate=SAMPLE_RATE,
@@ -144,6 +152,12 @@ def main():
             return
         save_config_entry(CONFIG_LISTEN_KEY, listen_ip)
         try:
+            listen_port = int(port_var.get().strip())
+        except ValueError:
+            safe_set(status_var, "Enter a valid port")
+            return
+        save_config_entry(CONFIG_PORT_KEY, listen_port)
+        try:
             sd.check_output_settings(
                 samplerate=SAMPLE_RATE,
                 channels=CHANNELS,
@@ -160,7 +174,7 @@ def main():
             packets_this_second["count"] = 0
             last_ten_seconds.clear()
         safe_set(button_var, "Stop")
-        listen_thread = threading.Thread(target=listen_audio, args=(listen_ip,), daemon=True)
+        listen_thread = threading.Thread(target=listen_audio, args=(listen_ip, listen_port), daemon=True)
         listen_thread.start()
         def console_report():
             while running.is_set() and not closing.is_set():

@@ -35,12 +35,14 @@ def load_config_target():
 def main():
     parser = argparse.ArgumentParser(description="Headless test tone sender")
     parser.add_argument("--ip", help="Target IP (overrides config)")
+    parser.add_argument("--port", type=int, default=PORT, help="Target UDP port (default: 5004)")
     args = parser.parse_args()
 
     target_ip = args.ip or load_config_target()
     if not target_ip:
         print("No target_ip found in ~/.vox/config.txt (and none provided)", file=sys.stderr)
         sys.exit(1)
+    port = args.port
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     omega = 2 * np.pi * 440.0 / SAMPLE_RATE
@@ -49,7 +51,7 @@ def main():
     tone_length_chunks = 5   # ~0.1s tone
     chunk_counter = 0
 
-    print(f"Sending test tone bursts to {target_ip}:{PORT}. Ctrl+C to stop.")
+    print(f"Sending test tone bursts to {target_ip}:{port}. Ctrl+C to stop.")
     try:
         levels = []
         packets = 0
@@ -66,7 +68,7 @@ def main():
                 frames = np.zeros((CHUNK, CHANNELS), dtype=np.int16)
 
             buf = frames.tobytes()
-            sock.sendto(buf, (target_ip, PORT))
+            sock.sendto(buf, (target_ip, port))
             chunk_counter += 1
             packets += 1
             # crude RMS for reporting
