@@ -73,8 +73,10 @@ def main():
     packets_lock = threading.Lock()
     packets_this_second = {"count": 0}
     last_ten_seconds = deque(maxlen=10)
+    console_lock = threading.Lock()
 
     listen_thread = None
+    console_thread = None
 
     config = load_config()
     default_ip = config.get(CONFIG_LISTEN_KEY, LISTEN_IP)
@@ -143,12 +145,25 @@ def main():
         safe_set(button_var, "Stop")
         listen_thread = threading.Thread(target=listen_audio, args=(listen_ip,), daemon=True)
         listen_thread.start()
+        def console_report():
+            while running.is_set() and not closing.is_set():
+                time.sleep(1)
+                with packets_lock:
+                    count = packets_this_second["count"]
+                with console_lock:
+                    pass
+                with console_lock:
+                    print(f"[listener] packets last second: {count}", flush=True)
+        console_thread = threading.Thread(target=console_report, daemon=True)
+        console_thread.start()
 
     def on_close():
         closing.set()
         running.clear()
         if listen_thread and listen_thread.is_alive():
             listen_thread.join(timeout=2)
+        if console_thread and console_thread.is_alive():
+            console_thread.join(timeout=2)
         root.destroy()
 
     start_button.configure(command=start)
