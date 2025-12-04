@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import socket
 import threading
+import time
 from collections import deque
 from pathlib import Path
 import tkinter as tk
