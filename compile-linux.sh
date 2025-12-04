@@ -23,5 +23,6 @@ for target in "${TARGETS[@]}"; do
     --workpath "$target_build" \
     --specpath "$target_build" \
     --clean \
+    --add-data "assets/nosphere-vox.png:assets" \
     "$target"
 done

@@ -50,6 +50,13 @@ def save_config_entry(key, value):
 def build_gui(default_ip, default_port):
     root = tk.Tk()
     root.title("Vox Listener")
+    icon_path = Path(__file__).with_name("assets").joinpath("nosphere-vox.png")
+    if icon_path.exists():
+        try:
+            icon_img = tk.PhotoImage(file=icon_path)
+            root.iconphoto(False, icon_img)
+        except Exception:
+            pass
 
     status_var = tk.StringVar(value="Idle")
     button_var = tk.StringVar(value="Start Listening")

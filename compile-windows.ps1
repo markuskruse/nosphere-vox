@@ -24,5 +24,6 @@ foreach ($target in $targets) {
         --workpath $targetBuild `
         --specpath $targetBuild `
         --clean `
+        --add-data "assets\\nosphere-vox.png;assets" `
         $target
 }
