@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import socket
 import threading
 import time
@@ -75,6 +76,10 @@ def build_gui(default_ip, default_port):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Vox Listener")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable periodic console logs")
+    args = parser.parse_args()
+
     running = threading.Event()
     closing = threading.Event()
 
@@ -109,8 +114,9 @@ def main():
         root.after(1000, update_status)
 
     def listen_audio(listen_ip, listen_port):
-        with console_lock:
-            print(f"[listener] binding on {listen_ip}:{listen_port}", flush=True)
+        if args.verbose:
+            with console_lock:
+                print(f"[listener] binding on {listen_ip}:{listen_port}", flush=True)
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
             sock.bind((listen_ip, listen_port))
@@ -133,8 +139,9 @@ def main():
                         packets_this_second["count"] += 1
         except Exception as exc:
             safe_set(status_var, f"Error: {exc}")
-            with console_lock:
-                print(f"[listener] error: {exc}", flush=True)
+            if args.verbose:
+                with console_lock:
+                    print(f"[listener] error: {exc}", flush=True)
         finally:
             sock.close()
             running.clear()
@@ -181,12 +188,12 @@ def main():
                 time.sleep(1)
                 with packets_lock:
                     count = packets_this_second["count"]
-                with console_lock:
-                    pass
-                with console_lock:
-                    print(f"[listener] packets last second: {count}", flush=True)
-        console_thread = threading.Thread(target=console_report, daemon=True)
-        console_thread.start()
+                if args.verbose:
+                    with console_lock:
+                        print(f"[listener] packets last second: {count}", flush=True)
+        if args.verbose:
+            console_thread = threading.Thread(target=console_report, daemon=True)
+            console_thread.start()
 
     def on_close():
         closing.set()

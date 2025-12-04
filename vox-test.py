@@ -36,6 +36,7 @@ def main():
     parser = argparse.ArgumentParser(description="Headless test tone sender")
     parser.add_argument("--ip", help="Target IP (overrides config)")
     parser.add_argument("--port", type=int, default=PORT, help="Target UDP port (default: 5004)")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable periodic console logs")
     args = parser.parse_args()
 
     target_ip = args.ip or load_config_target()
@@ -77,7 +78,7 @@ def main():
                 rms = float(np.sqrt(np.mean(samples_int * samples_int))) / 32768.0
                 levels.append(rms)
             now = time.time()
-            if now - last_print >= 1.0:
+            if args.verbose and now - last_print >= 1.0:
                 if levels:
                     avg = sum(levels) / len(levels)
                     bars = max(1, min(20, int(avg * 20)))
