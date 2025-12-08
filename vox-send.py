@@ -67,6 +67,7 @@ def main():
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     ran_setup = False
+    created_modules = []
     saved_default_sink = None
     saved_default_source = None
 
@@ -115,12 +116,13 @@ def main():
             if args.verbose:
                 print(f"Created {SINK_NAME} sink (module {mod_id}) and set defaults", flush=True)
             ran_setup = True
+            created_modules.append(mod_id)
             print("OK", flush=True)
         except Exception as exc:
             print(f"auto-sink setup failed: {exc}", file=sys.stderr)
 
     def teardown_sink():
-        if not ran_setup or os.name != "posix":
+        if args.no_auto_sink or os.name != "posix":
             return
         print("Let this tech heresy burn!", flush=True)
         if saved_default_sink:
@@ -133,21 +135,42 @@ def main():
                 subprocess.check_call(["pactl", "set-default-source", saved_default_source])
             except Exception as exc:
                 print(f"restore default source failed: {exc}", file=sys.stderr)
-        try:
-            mods = subprocess.check_output(["pactl", "list", "short", "modules"], text=True)
-            for line in mods.splitlines():
-                parts = line.split("\t")
-                if len(parts) >= 2:
-                    mid = parts[0]
-                    desc = parts[1]
-                    if f"sink_name={SINK_NAME}" in desc or f"{SINK_NAME}.monitor" in desc or SINK_NAME in desc:
-                        try:
-                            subprocess.check_call(["pactl", "unload-module", mid])
-                        except Exception:
-                            continue
-        except Exception as exc:
-            if args.verbose:
-                print(f"teardown unload failed: {exc}", file=sys.stderr)
+        if created_modules:
+            for mid in created_modules:
+                try:
+                    subprocess.check_call(["pactl", "unload-module", str(mid)])
+                except Exception as exc:
+                    if args.verbose:
+                        print(f"unload module {mid} failed: {exc}", file=sys.stderr)
+        else:
+            # attempt unload of any vox_meter modules
+            try:
+                mods = subprocess.check_output(["pactl", "list", "short", "modules"], text=True)
+                for line in mods.splitlines():
+                    parts = line.split("\t")
+                    if len(parts) >= 2:
+                        mid = parts[0]
+                        desc = parts[1]
+                        if f"sink_name={SINK_NAME}" in desc or f"{SINK_NAME}.monitor" in desc or SINK_NAME in desc:
+                            try:
+                                subprocess.check_call(["pactl", "unload-module", mid])
+                            except Exception:
+                                continue
+            except Exception as exc:
+                if args.verbose:
+                    print(f"teardown module scan failed: {exc}", file=sys.stderr)
+        # verify sink removal, retry up to 5 times
+        for _ in range(5):
+            try:
+                out = subprocess.check_output(["pactl", "list", "short", "sinks"], text=True)
+                if SINK_NAME not in out:
+                    break
+            except Exception as exc:
+                if args.verbose:
+                    print(f"sink check during teardown failed: {exc}", file=sys.stderr)
+            time.sleep(0.2)
+        else:
+            print(f"Warning: {SINK_NAME} still present after teardown attempts", file=sys.stderr)
         print("Burned", flush=True)
 
     try:
